@@ -1,7 +1,7 @@
 package main
 
 import (
-  "JFFMonkeyLang/repl"
+  "JFFMonkeyLang/src/repl"
   "fmt"
   "os"
   "os/user"

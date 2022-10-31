@@ -34,10 +34,10 @@ func (l *Lexer) NextToken() token.Token {
 
       tok.Literal = "=="
       tok.Type = token.EQ
+    } else {
+      // '=' token
+      tok = newToken(token.ASSIGN, l.ch)
     }
-
-    // '=' token
-    tok = newToken(token.ASSIGN, l.ch)
   case '!':
     // '!=' token
     if l.peekChar() == '=' {
@@ -45,10 +45,10 @@ func (l *Lexer) NextToken() token.Token {
 
       tok.Literal = "!="
       tok.Type = token.NOT_EQ
+    } else {
+      // '!' token
+      tok = newToken(token.BANG, l.ch)
     }
-
-    // '!' token
-    tok = newToken(token.BANG, l.ch)
   case '+':
     tok = newToken(token.PLUS, l.ch)
   case '-':
