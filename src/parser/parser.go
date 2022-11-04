@@ -35,7 +35,8 @@ func (p *Parser) ParseProgram() *ast.Program {
   program := &ast.Program{}
   program.Statements = []ast.Statement{}
 
-  // 2.
+  // 2. Parse the token continuously and identify the statement
+  // until the end of the file
   for !p.curTokenIs(token.EOF) {
     stmt := p.parseStatement()
     if stmt != nil {
@@ -47,6 +48,7 @@ func (p *Parser) ParseProgram() *ast.Program {
   return program
 }
 
+/* parse Statements */
 func (p *Parser) parseStatement() ast.Statement {
   switch p.curToken.Type {
   case token.LET:
@@ -59,24 +61,30 @@ func (p *Parser) parseStatement() ast.Statement {
 }
 
 func (p *Parser) parseLetStatement() *ast.LetStatement {
-  stmt := &ast.LetStatement{Token: p.curToken}
+  // 1
+  stmt := &ast.LetStatement{Token: p.curToken} // token.LET
 
-  // Check variable name. eg: x, y, foo, bar
+  // 2.Check variable name(expect token). eg: x, y, foo, bar
   if !p.expectPeek(token.IDENT) {
+    // When `nil`` is returned here,
+    // ParseProgram will filter and skip the parsing of the statement,
+    // which is equivalent to eating the Error,
+    // a more robust way is to throw an error and terminate the parsing
     return nil
   }
 
   stmt.Name = &ast.Identifier{
-    Token: p.curToken,
+    Token: p.curToken, // token.IDENT
     Value: p.curToken.Literal,
   }
 
-  // Check '=' token
+  // 3.Check '=' token
   if !p.expectPeek(token.ASSIGN) {
+    //
     return nil
   }
 
-  // Temporarily skip the processing of expressions
+  // TODO: Temporarily skip the processing of expressions
   // until a semicolon is encountered
   for !p.curTokenIs(token.SEMICOLON) {
     p.nextToken()
@@ -86,11 +94,12 @@ func (p *Parser) parseLetStatement() *ast.LetStatement {
 }
 
 func (p *Parser) parseReturnStatement() *ast.ReturnStatement {
-  stmt := &ast.ReturnStatement{Token: p.curToken}
+  // 1.
+  stmt := &ast.ReturnStatement{Token: p.curToken} // token.RETURN
 
   p.nextToken()
 
-  // Temporarily skip the processing of expressions
+  // TODO: Temporarily skip the processing of expressions
   // until a semicolon is encountered
   for !p.curTokenIs(token.SEMICOLON) {
     p.nextToken()
