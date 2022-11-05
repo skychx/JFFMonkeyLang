@@ -2,12 +2,13 @@ package ast
 
 import (
   "JFFMonkeyLang/src/token"
+  "bytes"
 )
 
 // The base Node interface
 type Node interface {
   TokenLiteral() string
-  // String() string
+  String() string // print ast node for test
 }
 
 // All statement nodes implement this
@@ -35,6 +36,16 @@ func (p *Program) TokenLiteral() string {
   }
 }
 
+func (p *Program) String() string {
+  var out bytes.Buffer
+
+  for _, s := range p.Statements {
+    out.WriteString(s.String())
+  }
+
+  return out.String()
+}
+
 /* Statements */
 
 /*
@@ -50,6 +61,21 @@ type LetStatement struct {
 
 func (ls *LetStatement) statementNode()       {}
 func (ls *LetStatement) TokenLiteral() string { return ls.Token.Literal }
+func (ls *LetStatement) String() string {
+  var out bytes.Buffer
+
+  out.WriteString(ls.TokenLiteral() + " ")
+  out.WriteString(ls.Name.String())
+  out.WriteString(" = ")
+
+  if ls.Value != nil {
+    out.WriteString(ls.Value.String())
+  }
+
+  out.WriteString(";")
+
+  return out.String()
+}
 
 /*
  * return 5;
@@ -63,6 +89,39 @@ type ReturnStatement struct {
 
 func (ls *ReturnStatement) statementNode()       {}
 func (ls *ReturnStatement) TokenLiteral() string { return ls.Token.Literal }
+func (rs *ReturnStatement) String() string {
+  var out bytes.Buffer
+
+  out.WriteString(rs.TokenLiteral() + " ")
+
+  if rs.ReturnValue != nil {
+    out.WriteString(rs.ReturnValue.String())
+  }
+
+  out.WriteString(";")
+
+  return out.String()
+}
+
+/*
+ * x     x + 10;
+ * Token Expression
+ *
+ *
+ */
+type ExpressionStatement struct {
+  Token      token.Token // the first token of the expression
+  Expression Expression
+}
+
+func (ls *ExpressionStatement) statementNode()       {}
+func (ls *ExpressionStatement) TokenLiteral() string { return ls.Token.Literal }
+func (es *ExpressionStatement) String() string {
+  if es.Expression != nil {
+    return es.Expression.String()
+  }
+  return ""
+}
 
 /* Expressions */
 type Identifier struct {
@@ -72,3 +131,4 @@ type Identifier struct {
 
 func (i *Identifier) expressionNode()      {}
 func (i *Identifier) TokenLiteral() string { return i.Token.Literal }
+func (i *Identifier) String() string       { return i.Value }
