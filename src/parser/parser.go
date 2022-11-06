@@ -160,9 +160,12 @@ func (p *Parser) parseReturnStatement() *ast.ReturnStatement {
 }
 
 func (p *Parser) parseExpressionStatement() *ast.ExpressionStatement {
+  // debug print
+  defer untrace(trace("parseExpressionStatement"))
+
   // 1.build AST node
   stmt := &ast.ExpressionStatement{Token: p.curToken}
-  // 2.
+  // 2.defalut precedence is LOWEST
   stmt.Expression = p.parseExpression(LOWEST)
 
   // 3.check ';' and jump ';' token
@@ -175,26 +178,29 @@ func (p *Parser) parseExpressionStatement() *ast.ExpressionStatement {
 
 // !!! Pratt Parsing Core Logic !!!
 func (p *Parser) parseExpression(precedence int) ast.Expression {
-  prefix := p.prefixParseFns[p.curToken.Type]
+  // debug print
+  defer untrace(trace("parseExpression"))
 
-  if prefix == nil {
+  prefixFn := p.prefixParseFns[p.curToken.Type]
+
+  if prefixFn == nil {
     p.noPrefixParseFnError(p.curToken.Type)
     return nil
   }
-  leftExp := prefix()
+  leftExpression := prefixFn()
 
   for !p.peekTokenIs(token.SEMICOLON) && precedence < p.peekPrecedence() {
-    infix := p.infixParseFns[p.peekToken.Type]
-    if infix == nil {
-      return leftExp
+    infixFn := p.infixParseFns[p.peekToken.Type]
+    if infixFn == nil {
+      return leftExpression
     }
 
     p.nextToken()
 
-    leftExp = infix(leftExp)
+    leftExpression = infixFn(leftExpression)
   }
 
-  return leftExp
+  return leftExpression
 }
 
 // eg: foo;
@@ -204,6 +210,9 @@ func (p *Parser) parseIdentifier() ast.Expression {
 
 // eg: 5;
 func (p *Parser) parseIntegerLiteral() ast.Expression {
+  // debug print
+  defer untrace(trace("parseIntegerLiteral " + p.curToken.Literal))
+
   literal := &ast.IntegerLiteral{Token: p.curToken}
 
   // string to int
@@ -221,6 +230,9 @@ func (p *Parser) parseIntegerLiteral() ast.Expression {
 
 // eg: !5, -5
 func (p *Parser) parsePrefixExpression() ast.Expression {
+  // debug print
+  defer untrace(trace("parsePrefixExpression " + p.curToken.Literal))
+
   expression := &ast.PrefixExpression{
     Token:    p.curToken,
     Operator: p.curToken.Literal,
@@ -237,13 +249,16 @@ func (p *Parser) parsePrefixExpression() ast.Expression {
 
 // eg: 1 + 2
 func (p *Parser) parseInfixExpression(left ast.Expression) ast.Expression {
+  // debug print
+  defer untrace(trace("parseInfixExpression " + p.curToken.Literal))
+
   expression := &ast.InfixExpression{
-    Token:    p.curToken,         // +
-    Operator: p.curToken.Literal, // +
-    Left:     left,               // 1
+    Token:    p.curToken,         // eg: +
+    Operator: p.curToken.Literal, // eg: +
+    Left:     left,               // eg: 1
   }
 
-  precedence := p.curPrecedence() // SUM(4)
+  precedence := p.curPrecedence() // eg: SUM(4)
 
   p.nextToken()
 

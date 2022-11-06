@@ -188,6 +188,7 @@ func TestParsingPrefixExpressions(t *testing.T) {
   }
 }
 
+// 5 + 5;
 func TestParsingInfixExpressions(t *testing.T) {
   infixTests := []struct {
     input      string
@@ -240,6 +241,7 @@ func TestParsingInfixExpressions(t *testing.T) {
   }
 }
 
+// -a * b;
 func TestOperatorPrecedenceParsing(t *testing.T) {
   tests := []struct {
     input    string
@@ -357,6 +359,41 @@ func TestOperatorPrecedenceParsing(t *testing.T) {
     if actual != tt.expected {
       t.Errorf("expected=%q, got=%q", tt.expected, actual)
     }
+  }
+}
+
+// go test -v -run TestOperatorPrecedenceParsing ./src/parser
+func TestOperatorPrecedenceParsing2(t *testing.T) {
+  tests := []struct {
+    input    string
+    expected string
+  }{
+    {
+      "-1 + 2 * 3",
+      "((-1) + (2 * 3))",
+    },
+    {
+      "-1 * 2 + 3",
+      "(((-1) * 2) + 3)",
+    },
+    {
+      "1 * -2 + 3",
+      "((1 * (-2)) + 3)",
+    },
+  }
+
+  for _, tt := range tests {
+    l := lexer.New(tt.input)
+    p := New(l)
+    program := p.ParseProgram()
+    checkParserErrors(t, p)
+
+    actual := program.String()
+    if actual != tt.expected {
+      t.Errorf("expected=%q, got=%q", tt.expected, actual)
+    }
+
+    fmt.Print("\n")
   }
 }
 
