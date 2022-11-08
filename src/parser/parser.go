@@ -54,12 +54,13 @@ func New(l *lexer.Lexer) *Parser {
   p := &Parser{l: l}
 
   p.prefixParseFns = make(map[token.TokenType]prefixParseFn)
-  p.registerPrefix(token.IDENT, p.parseIdentifier)       // eg: foo
-  p.registerPrefix(token.INT, p.parseIntegerLiteral)     // eg: 5
-  p.registerPrefix(token.BANG, p.parsePrefixExpression)  // eg: "!5"
-  p.registerPrefix(token.MINUS, p.parsePrefixExpression) // eg: "-5"
-  p.registerPrefix(token.TRUE, p.parseBoolean)           // eg: true
-  p.registerPrefix(token.FALSE, p.parseBoolean)          // eg: false
+  p.registerPrefix(token.IDENT, p.parseIdentifier)         // eg: foo
+  p.registerPrefix(token.INT, p.parseIntegerLiteral)       // eg: 5
+  p.registerPrefix(token.BANG, p.parsePrefixExpression)    // eg: "!5"
+  p.registerPrefix(token.MINUS, p.parsePrefixExpression)   // eg: "-5"
+  p.registerPrefix(token.TRUE, p.parseBoolean)             // eg: true
+  p.registerPrefix(token.FALSE, p.parseBoolean)            // eg: false
+  p.registerPrefix(token.LPAREN, p.parseGroupedExpression) // eg: (
 
   p.infixParseFns = make(map[token.TokenType]infixParseFn)
   p.registerInfix(token.PLUS, p.parseInfixExpression)     // 1 + 1
@@ -210,8 +211,23 @@ func (p *Parser) parseIdentifier() ast.Expression {
   return &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
 }
 
+// eg: true, false
 func (p *Parser) parseBoolean() ast.Expression {
   return &ast.Boolean{Token: p.curToken, Value: p.curTokenIs(token.TRUE)}
+}
+
+// eg: (
+func (p *Parser) parseGroupedExpression() ast.Expression {
+  p.nextToken()
+
+  // Just raise the priority of the expressions inside the parens
+  expression := p.parseExpression(LOWEST)
+
+  if !p.expectPeek(token.RPAREN) {
+    return nil
+  }
+
+  return expression
 }
 
 // eg: 5;
