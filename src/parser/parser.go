@@ -79,11 +79,6 @@ func New(l *lexer.Lexer) *Parser {
   return p
 }
 
-func (p *Parser) nextToken() {
-  p.curToken = p.peekToken
-  p.peekToken = p.l.NextToken()
-}
-
 func (p *Parser) ParseProgram() *ast.Program {
   // 1. build ast root node
   program := &ast.Program{}
@@ -179,6 +174,7 @@ func (p *Parser) parseExpressionStatement() *ast.ExpressionStatement {
   return stmt
 }
 
+/* parse Expressions */
 // !!! Pratt Parsing Core Logic !!!
 func (p *Parser) parseExpression(precedence int) ast.Expression {
   // debug print
@@ -214,20 +210,6 @@ func (p *Parser) parseIdentifier() ast.Expression {
 // eg: true, false
 func (p *Parser) parseBoolean() ast.Expression {
   return &ast.Boolean{Token: p.curToken, Value: p.curTokenIs(token.TRUE)}
-}
-
-// eg: (
-func (p *Parser) parseGroupedExpression() ast.Expression {
-  p.nextToken()
-
-  // Just raise the priority of the expressions inside the parens
-  expression := p.parseExpression(LOWEST)
-
-  if !p.expectPeek(token.RPAREN) {
-    return nil
-  }
-
-  return expression
 }
 
 // eg: 5;
@@ -288,6 +270,26 @@ func (p *Parser) parseInfixExpression(left ast.Expression) ast.Expression {
   expression.Right = p.parseExpression(precedence)
 
   return expression
+}
+
+// eg: (
+func (p *Parser) parseGroupedExpression() ast.Expression {
+  p.nextToken()
+
+  // Just raise the priority of the expressions inside the parens
+  expression := p.parseExpression(LOWEST)
+
+  if !p.expectPeek(token.RPAREN) {
+    return nil
+  }
+
+  return expression
+}
+
+/* parse utils */
+func (p *Parser) nextToken() {
+  p.curToken = p.peekToken
+  p.peekToken = p.l.NextToken()
 }
 
 func (p *Parser) curTokenIs(t token.TokenType) bool {
