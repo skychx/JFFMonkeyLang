@@ -62,6 +62,7 @@ func New(l *lexer.Lexer) *Parser {
   p.registerPrefix(token.FALSE, p.parseBoolean)            // eg: false
   p.registerPrefix(token.LPAREN, p.parseGroupedExpression) // eg: (
   p.registerPrefix(token.IF, p.parseIfExpression)          // eg: if
+  p.registerPrefix(token.FUNCTION, p.parseFunctionLiteral) // eg: fn() { return foo; }
 
   p.infixParseFns = make(map[token.TokenType]infixParseFn)
   p.registerInfix(token.PLUS, p.parseInfixExpression)     // 1 + 1
@@ -304,7 +305,7 @@ func (p *Parser) parseGroupedExpression() ast.Expression {
   return expression
 }
 
-// eg: (
+// eg: if (a > b) { a }
 func (p *Parser) parseIfExpression() ast.Expression {
   expression := &ast.IfExpression{Token: p.curToken}
 
@@ -346,6 +347,67 @@ func (p *Parser) parseIfExpression() ast.Expression {
   }
 
   return expression
+}
+
+// eg: fn(a, b) { return a + b; }
+func (p *Parser) parseFunctionLiteral() ast.Expression {
+  literal := &ast.FunctionLiteral{Token: p.curToken}
+
+  // fn(a, b) { return a + b; }
+  // ..^.......................
+  if !p.expectPeek(token.LPAREN) {
+    return nil
+  }
+
+  literal.Parameters = p.parseFunctionParameters()
+
+  // fn(a, b) { return a + b; }
+  // .........^................
+  if !p.expectPeek(token.LBRACE) {
+    return nil
+  }
+
+  literal.Body = p.parseBlockStatement()
+
+  return literal
+}
+
+func (p *Parser) parseFunctionParameters() []*ast.Identifier {
+  identifiers := []*ast.Identifier{}
+
+  // CASE 1: No Parameters, eg: fn()
+  if p.peekTokenIs(token.RPAREN) {
+    p.nextToken()
+
+    return identifiers
+  }
+
+  // CASE 2: Has Parameters, eg: fn(a, b, c)
+  p.nextToken()
+
+  // first parameter
+  // fn(a, b, c) {}
+  // ...^..........
+  identifier := &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+  identifiers = append(identifiers, identifier)
+
+  // rest parameters
+  // fn(a, b, c) {}
+  // ......^^^^....
+  for p.peekTokenIs(token.COMMA) {
+    p.nextToken() // JUMP COMMA
+    p.nextToken()
+    identifier := &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+    identifiers = append(identifiers, identifier)
+  }
+
+  // fn(a, b, c) {}
+  // ..........^....
+  if !p.expectPeek(token.RPAREN) {
+    return nil
+  }
+
+  return identifiers
 }
 
 /* parse utils */
