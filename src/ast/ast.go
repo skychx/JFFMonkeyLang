@@ -54,7 +54,7 @@ func (p *Program) String() string {
  * Token Identifier Expression
  */
 type LetStatement struct {
-  Token token.Token // the token.LET token
+  Token token.Token // the 'let' token
   Name  *Identifier
   Value Expression
 }
@@ -83,7 +83,7 @@ func (ls *LetStatement) String() string {
  * Token  ReturnValue
  */
 type ReturnStatement struct {
-  Token       token.Token
+  Token       token.Token // the 'return' token
   ReturnValue Expression
 }
 
@@ -121,6 +121,27 @@ func (es *ExpressionStatement) String() string {
     return es.Expression.String()
   }
   return ""
+}
+
+/*
+ * { x = x + 1 }
+ *
+ */
+type BlockStatement struct {
+  Token      token.Token // the '{' token
+  Statements []Statement
+}
+
+func (bs *BlockStatement) statementNode()       {}
+func (bs *BlockStatement) TokenLiteral() string { return bs.Token.Literal }
+func (bs *BlockStatement) String() string {
+  var out bytes.Buffer
+
+  for _, s := range bs.Statements {
+    out.WriteString(s.String())
+  }
+
+  return out.String()
 }
 
 /* Expressions */
@@ -191,6 +212,32 @@ func (ie *InfixExpression) String() string {
   out.WriteString(" " + ie.Operator + " ")
   out.WriteString(ie.Right.String())
   out.WriteString(")")
+
+  return out.String()
+}
+
+// eg: if(x > y) { x } else { y }
+type IfExpression struct {
+  Token       token.Token // the 'if' token
+  Condition   Expression
+  Consequence *BlockStatement
+  Alternative *BlockStatement
+}
+
+func (ie *IfExpression) expressionNode()      {}
+func (ie *IfExpression) TokenLiteral() string { return ie.Token.Literal }
+func (ie *IfExpression) String() string {
+  var out bytes.Buffer
+
+  out.WriteString("if")
+  out.WriteString(ie.Condition.String())
+  out.WriteString(" ")
+  out.WriteString(ie.Consequence.String())
+
+  if ie.Alternative != nil {
+    out.WriteString("else ")
+    out.WriteString(ie.Alternative.String())
+  }
 
   return out.String()
 }
