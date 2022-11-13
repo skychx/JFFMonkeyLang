@@ -74,6 +74,8 @@ func New(l *lexer.Lexer) *Parser {
   p.registerInfix(token.LT, p.parseInfixExpression)       // 1 < 1
   p.registerInfix(token.GT, p.parseInfixExpression)       // 1 > 1
 
+  p.registerInfix(token.LPAREN, p.parseCallExpression) // add(1, 2)
+
   // Read two tokens, so curToken and peekToken are both set
   p.nextToken()
   p.nextToken()
@@ -408,6 +410,48 @@ func (p *Parser) parseFunctionParameters() []*ast.Identifier {
   }
 
   return identifiers
+}
+
+// eg: add(1, 2 * 3, 4 + 5);
+func (p *Parser) parseCallExpression(function ast.Expression) ast.Expression {
+  expression := &ast.CallExpression{Token: p.curToken, Function: function}
+  expression.Arguments = p.parseCallArguments()
+  return expression
+}
+
+func (p *Parser) parseCallArguments() []ast.Expression {
+  args := []ast.Expression{}
+
+  // CASE 1: No Parameters, eg: add()
+  if p.peekTokenIs(token.RPAREN) {
+    p.nextToken()
+    return args
+  }
+
+  // CASE 2: Has Parameters, eg: add(a, b, c)
+  p.nextToken()
+
+  // first arguments
+  // add(a, b, c) {}
+  // ....^..........
+  args = append(args, p.parseExpression(LOWEST))
+
+  // rest parameters
+  // add(a, b, c) {}
+  // .......^^^^....
+  for p.peekTokenIs(token.COMMA) {
+    p.nextToken()
+    p.nextToken()
+    args = append(args, p.parseExpression(LOWEST))
+  }
+
+  // add(a, b, c) {}
+  // ...........^....
+  if !p.expectPeek(token.RPAREN) {
+    return nil
+  }
+
+  return args
 }
 
 /* parse utils */
