@@ -114,34 +114,46 @@ func (p *Parser) parseStatement() ast.Statement {
 }
 
 func (p *Parser) parseLetStatement() *ast.LetStatement {
-  // 1
   stmt := &ast.LetStatement{Token: p.curToken} // token.LET
 
-  // 2.Check variable name(expect token). eg: x, y, foo, bar
+  // 1.curToken is 'let', peekToken may be IDENT
+  // let a = 1;
+  // ....^.....
   if !p.expectPeek(token.IDENT) {
-    // When `nil`` is returned here,
+    // When `nil` is returned here,
     // ParseProgram will filter and skip the parsing of the statement,
     // which is equivalent to eating the Error,
     // a more robust way is to throw an error and terminate the parsing
     return nil
   }
 
+  // 2.curToken is IDENT
   stmt.Name = &ast.Identifier{
     Token: p.curToken, // token.IDENT
     Value: p.curToken.Literal,
   }
 
-  // 3.Check '=' token
+  // 3.curToken is IDENT, peekToken may be '='
+  // let a = 1;
+  // ......^...
   if !p.expectPeek(token.ASSIGN) {
     return nil
   }
 
+  // 4.curToken is '=', jump it
   p.nextToken()
+
+  // 5.parseExpression
   stmt.Value = p.parseExpression(LOWEST)
 
-  for !p.curTokenIs(token.SEMICOLON) {
+  // 6.peekToken may be ';'
+  // let a = 1;
+  // .........^
+  if p.peekTokenIs(token.SEMICOLON) {
+    // 7.peekToken is ';', jump to it
     p.nextToken()
   }
+  // 8.curToken is ';'
 
   return stmt
 }
@@ -149,12 +161,19 @@ func (p *Parser) parseLetStatement() *ast.LetStatement {
 func (p *Parser) parseReturnStatement() *ast.ReturnStatement {
   stmt := &ast.ReturnStatement{Token: p.curToken} // token.RETURN
 
+  // 1.curToken is 'return', jump it
   p.nextToken()
+  // 2.parseExpression
   stmt.ReturnValue = p.parseExpression(LOWEST)
 
-  for !p.curTokenIs(token.SEMICOLON) {
+  // 3.peekToken may be ';'
+  // return a;
+  // ........^
+  for p.peekTokenIs(token.SEMICOLON) {
+    // 4.peekToken is ';', jump to it
     p.nextToken()
   }
+  // 5.curToken is ';'
 
   return stmt
 }
@@ -168,10 +187,12 @@ func (p *Parser) parseExpressionStatement() *ast.ExpressionStatement {
   // 2.defalut precedence is LOWEST
   stmt.Expression = p.parseExpression(LOWEST)
 
-  // 3.check ';' and jump ';' token
+  // 3.peekToken may be ';'
   if p.peekTokenIs(token.SEMICOLON) {
+    // 4.peekToken is ';', jump to it
     p.nextToken()
   }
+  // 5.curToken is ';'
 
   return stmt
 }
@@ -180,6 +201,9 @@ func (p *Parser) parseBlockStatement() *ast.BlockStatement {
   block := &ast.BlockStatement{Token: p.curToken}
   block.Statements = []ast.Statement{}
 
+  // 1.curToken is '{', jump it
+  // { a }
+  // ^....
   p.nextToken()
 
   for !p.curTokenIs(token.RBRACE) && !p.curTokenIs(token.EOF) {
@@ -245,7 +269,6 @@ func (p *Parser) parseIntegerLiteral() ast.Expression {
     p.errors = append(p.errors, msg)
     return nil
   }
-
   literal.Value = value
 
   return literal
@@ -261,10 +284,13 @@ func (p *Parser) parsePrefixExpression() ast.Expression {
     Operator: p.curToken.Literal,
   }
 
-  // jump Prefix Token
+  // 1.curToken is Prefix Token, jump it
+  // !5;
+  // -5;
+  // ^..
   p.nextToken()
 
-  // recursive parsing
+  // 2.recursive parsing
   expression.Right = p.parseExpression(PREFIX)
 
   return expression
@@ -283,9 +309,10 @@ func (p *Parser) parseInfixExpression(left ast.Expression) ast.Expression {
 
   precedence := p.curPrecedence() // eg: SUM(4)
 
+  // 1.curToken is Infix Token, jump it
   p.nextToken()
 
-  // recursive parsing
+  // 2.recursive parsing
   expression.Right = p.parseExpression(precedence)
 
   return expression
@@ -293,14 +320,21 @@ func (p *Parser) parseInfixExpression(left ast.Expression) ast.Expression {
 
 // eg: (
 func (p *Parser) parseGroupedExpression() ast.Expression {
+  // 1.curToken is '(', jump it
+  // (1 + 1)
+  // ^......
   p.nextToken()
 
-  // Just raise the priority of the expressions inside the parens
+  // 2.Just raise the priority of the expressions inside the parens
   expression := p.parseExpression(LOWEST)
 
+  // 3.peekToken may be ')'
+  // (1 + 1)
+  // ......^
   if !p.expectPeek(token.RPAREN) {
     return nil
   }
+  // 4.curToken is ')'
 
   return expression
 }
@@ -309,40 +343,51 @@ func (p *Parser) parseGroupedExpression() ast.Expression {
 func (p *Parser) parseIfExpression() ast.Expression {
   expression := &ast.IfExpression{Token: p.curToken}
 
+  // 1.curToken is 'if', peekToken may be '('
   // if (a > b) { a }
   // ...^............
   if !p.expectPeek(token.LPAREN) {
     return nil
   }
 
+  // 2.curToken is '(', jump it
   p.nextToken()
+
+  // 3.parseExpression
   expression.Condition = p.parseExpression(LOWEST)
 
+  // 4.peekToken may be '('
   // if (a > b) { a }
   // .........^......
   if !p.expectPeek(token.RPAREN) {
     return nil
   }
 
+  // 5.curToken is '(', peekToken may be '{'
   // if (a > b) { a }
   // ...........^...
   if !p.expectPeek(token.LBRACE) {
     return nil
   }
 
+  // 6.curToken is '{'
   expression.Consequence = p.parseBlockStatement()
 
+  // 7.peekToken may be 'else'
   // if (a > b) { a } else { b }
   // .................^^^^......
   if p.peekTokenIs(token.ELSE) {
+    // 8.peekToken is 'else', jump it
     p.nextToken()
 
+    // 9.curToken is 'else', peekToken may be '{'
     // if (a > b) { a } else { b }
     // ......................^...
     if !p.expectPeek(token.LBRACE) {
       return nil
     }
 
+    // 10.curToken is '{'
     expression.Alternative = p.parseBlockStatement()
   }
 
@@ -353,20 +398,24 @@ func (p *Parser) parseIfExpression() ast.Expression {
 func (p *Parser) parseFunctionLiteral() ast.Expression {
   literal := &ast.FunctionLiteral{Token: p.curToken}
 
+  // 1.curToken is 'fn', peekToken may be '('
   // fn(a, b) { return a + b; }
   // ..^.......................
   if !p.expectPeek(token.LPAREN) {
     return nil
   }
 
+  // 2.curToken is '(', parse Function Parameters
   literal.Parameters = p.parseFunctionParameters()
 
+  // 3.curToken is ')', peekToken may be '{'
   // fn(a, b) { return a + b; }
   // .........^................
   if !p.expectPeek(token.LBRACE) {
     return nil
   }
 
+  // 4.curToken is '{', parse BlockStatement
   literal.Body = p.parseBlockStatement()
 
   return literal
@@ -376,36 +425,44 @@ func (p *Parser) parseFunctionParameters() []*ast.Identifier {
   identifiers := []*ast.Identifier{}
 
   // CASE 1: No Parameters, eg: fn()
+  // 1.1 curToken is '(', peekToken may be ')'
   if p.peekTokenIs(token.RPAREN) {
+    // 1.2 peekToken is ')', jump to it
     p.nextToken()
+    // 1.3 curToken is ')'
 
     return identifiers
   }
 
   // CASE 2: Has Parameters, eg: fn(a, b, c)
+  // 2.1 curToken is '(', jump it
   p.nextToken()
 
-  // first parameter
+  // 2.2 first parameter
   // fn(a, b, c) {}
   // ...^..........
   identifier := &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
   identifiers = append(identifiers, identifier)
 
-  // rest parameters
+  // 2.3 rest parameters
   // fn(a, b, c) {}
   // ......^^^^....
   for p.peekTokenIs(token.COMMA) {
-    p.nextToken() // JUMP COMMA
+    // peekToken is ',', jump to it
+    p.nextToken()
+    // curToken is ',', jump it
     p.nextToken()
     identifier := &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
     identifiers = append(identifiers, identifier)
   }
 
+  // 2.4 peekToken may be ')'
   // fn(a, b, c) {}
   // ..........^....
   if !p.expectPeek(token.RPAREN) {
     return nil
   }
+  // 2.5 curToken is ')'
 
   return identifiers
 }
@@ -421,33 +478,42 @@ func (p *Parser) parseCallArguments() []ast.Expression {
   args := []ast.Expression{}
 
   // CASE 1: No Parameters, eg: add()
+  // 1.1 curToken is '(', peekToken may be ')'
   if p.peekTokenIs(token.RPAREN) {
+    // 1.2 peekToken is ')', jump to it
     p.nextToken()
+    // 1.3 curToken is ')'
+
     return args
   }
 
   // CASE 2: Has Parameters, eg: add(a, b, c)
+  // 2.1 curToken is '(', jump it
   p.nextToken()
 
-  // first arguments
+  // 2.2 first arguments
   // add(a, b, c) {}
   // ....^..........
   args = append(args, p.parseExpression(LOWEST))
 
-  // rest parameters
+  // 2.3 rest parameters
   // add(a, b, c) {}
   // .......^^^^....
   for p.peekTokenIs(token.COMMA) {
+    // peekToken is ',', jump to it
     p.nextToken()
+    // curToken is ',', jump it
     p.nextToken()
     args = append(args, p.parseExpression(LOWEST))
   }
 
+  // 2.4 peekToken may be ')'
   // add(a, b, c) {}
   // ...........^....
   if !p.expectPeek(token.RPAREN) {
     return nil
   }
+  // 2.5 curToken is ')'
 
   return args
 }
